@@ -1,0 +1,37 @@
+seed: 42
+
+data:
+  splits_path: "data/2014/processed/splits.parquet"
+  semantic_ids_path: "checkpoints/rqvae/semantic_ids.pt"
+  max_seq_len: 20
+  sliding_window: true
+  codebook_size: 256
+  num_levels: 4
+  num_user_buckets: 2000
+
+model:
+  d_model: 384
+  d_kv: 64
+  d_ff: 1024
+  num_layers: 4
+  num_heads: 6
+  dropout_rate: 0.1
+
+training:
+  batch_size: 32
+  max_steps: 20
+  learning_rate: 0.0003
+  weight_decay: 0.01
+  constant_lr_steps: 10
+  max_grad_norm: 1.0
+  logging_steps: 5
+  save_total_limit: 2
+  max_samples: 1024
+
+evaluation:
+  batch_size: 16
+  every_steps: 10
+  beam_size: 20
+  at_k: [5, 10]
+  selection_metric: "recall@10"
+  max_samples: 128

@@ -44,6 +44,7 @@ class TrainingConfig(BaseModel):
     max_grad_norm: NonNegativeFloat
     logging_steps: PositiveInt
     save_total_limit: PositiveInt
+    max_samples: PositiveInt | None = None
 
 
 class EvaluationConfig(BaseModel):
@@ -56,6 +57,7 @@ class EvaluationConfig(BaseModel):
     beam_size: PositiveInt
     at_k: tuple[PositiveInt, ...] = Field(min_length=1)
     selection_metric: str
+    max_samples: PositiveInt | None = None
 
 
 class RetrievalConfig(BaseModel):
@@ -85,3 +87,19 @@ def load_config(path: Path) -> RetrievalConfig:
         values = yaml.safe_load(file)
     
     return RetrievalConfig.model_validate(values)
+
+
+def save_config(config: RetrievalConfig, path: Path) -> None:
+    """
+    Save configuration to YAML file.
+
+    Args:
+        config: Configuration to save.
+        path: Path to the YAML file to save the configuration.
+    """
+    with open(path, "w", encoding="utf-8") as file:
+        yaml.safe_dump(
+            config.model_dump(mode="json"),
+            stream=file,
+            sort_keys=False,
+        )

@@ -25,3 +25,8 @@ def set_seed(seed: int = 42) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
     logger.info(f"Random seed set to {seed}")
+
+
+def get_num_params(model: torch.nn.Module) -> int:
+    """Count the total number of model parameters."""
+    return sum(p.numel() for p in model.parameters())

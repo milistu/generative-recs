@@ -36,7 +36,9 @@ def _tokens_to_asin(
     return sid_to_asin.get(tuple(codes))
 
 
-def _check_metric_inputs(recommendations: list[list[str]], targets: list[str], k: int) -> None:
+def _check_metric_inputs(
+    recommendations: list[list[str]], targets: list[str], k: int
+) -> None:
     """Validate inputs shared by the ranking metrics."""
     if k <= 0:
         raise ValueError("k must be positive.")
@@ -62,10 +64,7 @@ def recall_at_k(
     """
     _check_metric_inputs(recommendations, targets, k)
 
-    hits = sum(
-        target in items[:k]
-        for items, target in zip(recommendations, targets)
-    )
+    hits = sum(target in items[:k] for items, target in zip(recommendations, targets))
     return hits / len(targets)
 
 
@@ -92,7 +91,7 @@ def ndcg_at_k(
         if target in top_k:
             rank = top_k.index(target) + 1
             total += 1.0 / np.log2(rank + 1)
-    
+
     return float(total / len(targets))
 
 
@@ -133,13 +132,13 @@ def compute_metrics(
         raise ValueError("ID dimensions and beam_size must be positive.")
     if not at_k or any(k <= 0 for k in at_k):
         raise ValueError("at_k must contain positive cutoffs.")
-    
+
     for name, array in [("predictions", predictions), ("labels", labels)]:
         if not isinstance(array, np.ndarray) or array.ndim != 2:
             raise ValueError(f"{name} must be a 2D NumPy array.")
         if not np.issubdtype(array.dtype, np.integer):
             raise ValueError(f"{name} must contain integer token IDs.")
-    
+
     num_users = len(labels)
 
     if num_users == 0:
@@ -150,13 +149,17 @@ def compute_metrics(
         raise ValueError("Predictions or labels are shorter than the item ID.")
 
     # Remove START tokens and group each user's candidates together.
-    candidates = predictions[:, 1 : 1 + num_levels].reshape(num_users, beam_size, num_levels)
+    candidates = predictions[:, 1 : 1 + num_levels].reshape(
+        num_users, beam_size, num_levels
+    )
 
     recommendations: list[list[str]] = []
     targets: list[str] = []
 
     for index, (user_candidates, label) in enumerate(zip(candidates, labels)):
-        target = _tokens_to_asin(label[:num_levels].tolist(), sid_to_asin, codebook_size, num_levels)
+        target = _tokens_to_asin(
+            label[:num_levels].tolist(), sid_to_asin, codebook_size, num_levels
+        )
         if target is None:
             raise ValueError(f"Unknown target Semantic ID at row {index}.")
         targets.append(target)
@@ -165,13 +168,15 @@ def compute_metrics(
         seen: set[str] = set()
 
         for candidate in user_candidates:
-            item = _tokens_to_asin(candidate.tolist(), sid_to_asin, codebook_size, num_levels)
+            item = _tokens_to_asin(
+                candidate.tolist(), sid_to_asin, codebook_size, num_levels
+            )
             if item is not None and item not in seen:
                 items.append(item)
                 seen.add(item)
-        
+
         recommendations.append(items)
-    
+
     return {
         f"{name}@{k}": metric(recommendations, targets, k)
         for name, metric in METRICS.items()

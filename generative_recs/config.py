@@ -1,7 +1,14 @@
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, NonNegativeFloat
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveFloat,
+    PositiveInt,
+    NonNegativeFloat,
+)
 
 
 class DataConfig(BaseModel):
@@ -85,7 +92,7 @@ def load_config(path: Path) -> RetrievalConfig:
     """
     with open(path, "r", encoding="utf-8") as file:
         values = yaml.safe_load(file)
-    
+
     return RetrievalConfig.model_validate(values)
 
 

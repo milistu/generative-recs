@@ -144,9 +144,16 @@ class TigerDataset(Dataset):
             "labels": labels,
         }
 
-def custom_collate(batch: list[dict[str, torch.Tensor]], pad_token_id: int) -> dict[str, torch.Tensor]:
+
+def custom_collate(
+    batch: list[dict[str, torch.Tensor]], pad_token_id: int
+) -> dict[str, torch.Tensor]:
     """Pad histories to the longest history in the current batch."""
-    input_ids = pad_sequence([item["input_ids"] for item in batch], batch_first=True, padding_value=pad_token_id)
+    input_ids = pad_sequence(
+        [item["input_ids"] for item in batch],
+        batch_first=True,
+        padding_value=pad_token_id,
+    )
 
     attention_mask = (input_ids != pad_token_id).long()
     labels = torch.stack([item["labels"] for item in batch])

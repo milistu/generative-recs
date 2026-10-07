@@ -15,6 +15,7 @@ from generative_recs.dataset import TigerDataset, custom_collate
 from generative_recs.model import create_model
 from generative_recs.evaluation import compute_metrics
 
+
 def inv_sqrt_schedule(step: int, constant_lr_steps: int) -> float:
     """Keep the learning rate multiplier at 1, then decay as inverse square root."""
     if step < constant_lr_steps:
@@ -22,14 +23,15 @@ def inv_sqrt_schedule(step: int, constant_lr_steps: int) -> float:
     return (constant_lr_steps / step) ** 0.5
 
 
-def main(config_path: Annotated[
-    Path,
-    typer.Option(
-        "--config",
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        help="Path to the experiment YAML file."
+def main(
+    config_path: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Path to the experiment YAML file.",
         ),
     ],
     run_dir: Annotated[
@@ -37,9 +39,9 @@ def main(config_path: Annotated[
         typer.Option(
             "--run-dir",
             file_okay=False,
-            help="Directory for this run's configuration, logs, and checkpoints."
-            ),
-        ],
+            help="Directory for this run's configuration, logs, and checkpoints.",
+        ),
+    ],
 ) -> None:
     """Train the retrieval model and export the best validation checkpoint."""
 
@@ -65,8 +67,8 @@ def main(config_path: Annotated[
 
     train_dataset = TigerDataset(**dataset_kwargs, split="train", seed=config.seed)
     val_dataset = TigerDataset(**dataset_kwargs, split="val", seed=config.seed)
-    train_dataset.samples = train_dataset.samples[:config.training.max_samples]
-    val_dataset.samples = val_dataset.samples[:config.evaluation.max_samples]
+    train_dataset.samples = train_dataset.samples[: config.training.max_samples]
+    val_dataset.samples = val_dataset.samples[: config.evaluation.max_samples]
 
     collate_fn = partial(custom_collate, pad_token_id=train_dataset.pad_token)
 
@@ -86,9 +88,10 @@ def main(config_path: Annotated[
     )
     scheduler = LambdaLR(
         optimizer,
-        lr_lambda=partial(inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps),
+        lr_lambda=partial(
+            inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps
+        ),
     )
-
 
     sid_data = torch.load(
         config.data.semantic_ids_path,
@@ -113,20 +116,17 @@ def main(config_path: Annotated[
         learning_rate=config.training.learning_rate,
         weight_decay=config.training.weight_decay,
         max_grad_norm=config.training.max_grad_norm,
-
         eval_strategy="steps",
         eval_steps=config.evaluation.every_steps,
         predict_with_generate=True,
-
         save_strategy="steps",
         save_steps=config.evaluation.every_steps,
         save_total_limit=config.training.save_total_limit,
         load_best_model_at_end=True,
         metric_for_best_model=f"eval_{config.evaluation.selection_metric}",
         greater_is_better=True,
-
         logging_steps=config.training.logging_steps,
-        train_sampling_strategy='group_by_length',
+        train_sampling_strategy="group_by_length",
         remove_unused_columns=False,
         dataloader_pin_memory=device.type == "cuda",
         seed=config.seed,

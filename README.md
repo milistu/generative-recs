@@ -21,9 +21,8 @@ For example, for Toys and Games:
 2. Place them in `data/2014/` and decompress:
 
 ```bash
-cd data/2014
-gunzip reviews_Toys_and_Games_5.json.gz
-gunzip meta_Toys_and_Games.json.gz
+gunzip data/2014/reviews_Toys_and_Games_5.json.gz
+gunzip data/2014/meta_Toys_and_Games.json.gz
 ```
 
 Your `data/2014/` directory should look like:
@@ -36,6 +35,71 @@ data/2014/
 
 For other categories (Beauty, Sports and Outdoors), find the corresponding files on the [dataset page](https://cseweb.ucsd.edu/~jmcauley/datasets/amazon/links.html) and follow the same pattern.
 
+## Usage
+
+Run shell commands from the repository root. Configuration paths are relative to that directory.
+
+### Prepare the data and Semantic IDs
+
+Run these notebooks in order:
+
+1. `notebooks/01_prepare_data.ipynb` prepares interaction splits and item embeddings.
+2. `notebooks/02_train_rqvae.ipynb` trains the quantizer and generates Semantic IDs.
+
+The notebooks use paths relative to the `notebooks/` directory.
+
+Before training the recommender, these files must exist:
+
+```text
+data/2014/processed/splits.parquet
+checkpoints/rqvae/semantic_ids.pt
+```
+
+Keep the prepared data and Semantic IDs consistent between training and evaluation.
+
+### Run a quick check
+
+The smoke configuration runs 20 training steps on 1,024 training examples, with evaluation on 128 validation examples every 10 steps.
+
+```bash
+uv run python scripts/train.py \
+  --config configs/toys_smoke.yaml \
+  --run-dir checkpoints/toys_smoke
+```
+
+### Train the baseline
+
+```bash
+uv run python scripts/train.py \
+  --config configs/toys_baseline.yaml \
+  --run-dir checkpoints/toys_baseline
+```
+
+The baseline uses the full dataset and trains for 100,000 steps. By default, the checkpoint with highest validation Recall@10 is exported to `best/`.
+
+Each training run requires a new or empty output directory.
+
+### Evaluate a saved model
+
+Evaluate the selected model on validation data:
+
+```bash
+uv run python scripts/evaluate.py \
+  --run-dir checkpoints/toys_baseline \
+  --split val
+```
+
+Evaluate it on test data:
+
+```bash
+uv run python scripts/evaluate.py \
+  --run-dir checkpoints/toys_baseline \
+  --split test
+```
+
+Evaluation loads the run's saved `config.yaml` and `best/` model. It reports Recall@K, NDCG@K, and loss.
+
+Evaluation results are saved as `val_results.json` or `test_results.json` inside the run directory.
 
 ## Citations
 

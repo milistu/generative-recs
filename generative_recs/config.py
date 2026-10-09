@@ -5,9 +5,9 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    NonNegativeFloat,
     PositiveFloat,
     PositiveInt,
-    NonNegativeFloat,
 )
 
 
@@ -90,7 +90,7 @@ def load_config(path: Path) -> RetrievalConfig:
         yaml.YAMLError: The file contains invalid YAML.
         pydantic.ValidationError: Settings fail schema validation.
     """
-    with open(path, "r", encoding="utf-8") as file:
+    with open(path, encoding="utf-8") as file:
         values = yaml.safe_load(file)
 
     return RetrievalConfig.model_validate(values)

@@ -36,9 +36,7 @@ def _tokens_to_asin(
     return sid_to_asin.get(tuple(codes))
 
 
-def _check_metric_inputs(
-    recommendations: list[list[str]], targets: list[str], k: int
-) -> None:
+def _check_metric_inputs(recommendations: list[list[str]], targets: list[str], k: int) -> None:
     """Validate inputs shared by the ranking metrics."""
     if k <= 0:
         raise ValueError("k must be positive.")
@@ -149,9 +147,7 @@ def compute_metrics(
         raise ValueError("Predictions or labels are shorter than the item ID.")
 
     # Remove START tokens and group each user's candidates together.
-    candidates = predictions[:, 1 : 1 + num_levels].reshape(
-        num_users, beam_size, num_levels
-    )
+    candidates = predictions[:, 1 : 1 + num_levels].reshape(num_users, beam_size, num_levels)
 
     recommendations: list[list[str]] = []
     targets: list[str] = []
@@ -168,9 +164,7 @@ def compute_metrics(
         seen: set[str] = set()
 
         for candidate in user_candidates:
-            item = _tokens_to_asin(
-                candidate.tolist(), sid_to_asin, codebook_size, num_levels
-            )
+            item = _tokens_to_asin(candidate.tolist(), sid_to_asin, codebook_size, num_levels)
             if item is not None and item not in seen:
                 items.append(item)
                 seen.add(item)

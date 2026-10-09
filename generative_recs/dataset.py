@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 
-class TigerDataset(Dataset):
+class TigerDataset(Dataset[dict[str, torch.Tensor]]):
     """
     Seq2seq dataset for TIGER generative retrival.
 
@@ -103,7 +103,7 @@ class TigerDataset(Dataset):
 
         Val and test are always single-target (evaluation only).
         """
-        samples = []
+        samples: list[dict[str, list[int]]] = []
         for row in df.itertuples():
             user_token = self._hash_user(row.user_id)
 
@@ -112,14 +112,10 @@ class TigerDataset(Dataset):
                 if sliding_window:
                     for i in range(1, len(train_items)):
                         history = train_items[:i][-self.max_seq_len :]
-                        samples.append(
-                            self._make_sample(user_token, history, train_items[i])
-                        )
+                        samples.append(self._make_sample(user_token, history, train_items[i]))
                 else:
                     history = train_items[:-1][-self.max_seq_len :]
-                    samples.append(
-                        self._make_sample(user_token, history, train_items[-1])
-                    )
+                    samples.append(self._make_sample(user_token, history, train_items[-1]))
             elif split == "val":
                 history = list(row.train_items)[-self.max_seq_len :]
                 samples.append(self._make_sample(user_token, history, row.val_item))

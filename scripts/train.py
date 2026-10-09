@@ -1,20 +1,20 @@
+from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Annotated
-from functools import partial
-from datetime import UTC, datetime
 
 import torch
+import typer
+from loguru import logger
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
-from loguru import logger
 
-import typer
 from generative_recs.config import load_config, save_config
-from generative_recs.utils import set_seed, get_device, get_num_params
 from generative_recs.dataset import TigerDataset, custom_collate
-from generative_recs.model import create_model
 from generative_recs.evaluation import compute_metrics
+from generative_recs.model import create_model
+from generative_recs.utils import get_device, get_num_params, set_seed
 
 
 def inv_sqrt_schedule(step: int, constant_lr_steps: int) -> float:
@@ -83,9 +83,7 @@ def main(
     )
     scheduler = LambdaLR(
         optimizer,
-        lr_lambda=partial(
-            inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps
-        ),
+        lr_lambda=partial(inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps),
     )
 
     sid_data = torch.load(
@@ -149,15 +147,15 @@ def main(
 
     if trainer.state.best_model_checkpoint is None:
         raise RuntimeError(
-            "No best checkpoint was selected. "
-            "Check evaluation frequency and training length."
+            "No best checkpoint was selected. Check evaluation frequency and training length."
         )
 
     best_dir = run_dir / "best"
     trainer.save_model(str(best_dir))
 
     logger.info(
-        f"Finished. Best {config.evaluation.selection_metric}={trainer.state.best_metric:.6f}; exported model: {best_dir}"
+        f"Finished. Best {config.evaluation.selection_metric}={trainer.state.best_metric:.6f}; "
+        f"exported model: {best_dir}"
     )
 
 

@@ -21,7 +21,7 @@ class RQVAE(nn.Module):
         super().__init__()
 
         # Build encoder: input_dim -> hidden_dims -> latent_dim
-        encoder_layers = []
+        encoder_layers: list[nn.Module] = []
         dims = [input_dim] + hidden_dims
         for i in range(len(dims) - 1):
             encoder_layers.append(nn.Linear(dims[i], dims[i + 1]))
@@ -41,7 +41,7 @@ class RQVAE(nn.Module):
         )
 
         # Build decoder: latent_dim -> reversed hidden_dims -> input_dim
-        decoder_layers = []
+        decoder_layers: list[nn.Module] = []
         dims = [latent_dim] + hidden_dims[::-1]
         for i in range(len(dims) - 1):
             decoder_layers.append(nn.Linear(dims[i], dims[i + 1]))
@@ -56,9 +56,7 @@ class RQVAE(nn.Module):
         """Encode input to latent representation."""
         return self.encoder(x)
 
-    def quantize(
-        self, z: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def quantize(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Quantize latent representation.
 
         Returns:

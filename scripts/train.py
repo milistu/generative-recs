@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Annotated
 from functools import partial
+from datetime import UTC, datetime
 
 import torch
 from torch.optim import AdamW
@@ -34,12 +35,12 @@ def main(
             help="Path to the experiment YAML file.",
         ),
     ],
-    run_dir: Annotated[
+    output_dir: Annotated[
         Path,
         typer.Option(
-            "--run-dir",
+            "--output-dir",
             file_okay=False,
-            help="Directory for this run's configuration, logs, and checkpoints.",
+            help="Parent directory for timestamped training runs.",
         ),
     ],
 ) -> None:
@@ -47,18 +48,12 @@ def main(
 
     config = load_config(config_path)
 
-    run_dir = run_dir.resolve()
-
-    if run_dir.exists() and any(run_dir.iterdir()):
-        raise typer.BadParameter(
-            "Use a new or empty directory for a new run.",
-            param_hint="--run-dir",
-        )
-
-    run_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"
+    run_dir.mkdir(parents=True, exist_ok=False)
     logger.add(run_dir / "run.log", level="INFO")
     save_config(config, run_dir / "config.yaml")
-    logger.info(f"Run directory: {run_dir}")
+    logger.info(f"Output directory: {run_dir}")
 
     set_seed(config.seed)
     device = get_device()

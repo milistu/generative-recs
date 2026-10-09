@@ -72,7 +72,7 @@ uv run python scripts/train.py \
 ```bash
 uv run python scripts/train.py \
   --config configs/toys_baseline.yaml \
-  --run-dir checkpoints/toys_baseline
+  --output-dir checkpoints
 ```
 
 The baseline uses the full dataset and trains for 100,000 steps. By default, the checkpoint with highest validation Recall@10 is exported to `best/`.

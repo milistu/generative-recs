@@ -52,7 +52,9 @@ def main(
     run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
     logger.add(run_dir / "run.log", level="INFO")
-    save_config(config, run_dir / "config.yaml")
+    configs_dir = run_dir / "configs"
+    configs_dir.mkdir()
+    save_config(config, configs_dir / "retrieval.yaml")
     logger.info(f"Output directory: {run_dir}")
 
     set_seed(config.seed)

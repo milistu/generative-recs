@@ -51,8 +51,8 @@ The notebooks use paths relative to the `notebooks/` directory.
 Before training the recommender, these files must exist:
 
 ```text
-data/2014/processed/splits.parquet
-checkpoints/rqvae/semantic_ids.pt
+data/toys/processed/baseline/splits.parquet
+checkpoints/toys/quantization/baseline/semantic_ids.pt
 ```
 
 Keep the prepared data and Semantic IDs consistent between training and evaluation.
@@ -63,29 +63,31 @@ The smoke configuration runs 20 training steps on 1,024 training examples, with 
 
 ```bash
 uv run python scripts/train.py \
-  --config configs/toys_smoke.yaml \
-  --run-dir checkpoints/toys_smoke
+  --config configs/toys/retrieval_smoke.yaml \
+  --output-dir checkpoints/toys/retrieval
 ```
 
 ### Train the baseline
 
 ```bash
 uv run python scripts/train.py \
-  --config configs/toys_baseline.yaml \
-  --output-dir checkpoints
+  --config configs/toys/retrieval_baseline.yaml \
+  --output-dir checkpoints/toys/retrieval
 ```
 
 The baseline uses the full dataset and trains for 100,000 steps. By default, the checkpoint with highest validation Recall@10 is exported to `best/`.
 
-Each training run requires a new or empty output directory.
+`--output-dir` is the parent directory and can contain existing runs. Training creates a new `<config_name>_<UTC timestamp>/` subdirectory and logs its path. Settings are saved in `configs/retrieval.yaml` inside that run.
 
 ### Evaluate a saved model
 
-Evaluate the selected model on validation data:
+Replace `<run_name>` with the run directory name printed by training.
+
+Evaluate on validation data:
 
 ```bash
 uv run python scripts/evaluate.py \
-  --run-dir checkpoints/toys_baseline \
+  --run-dir "checkpoints/toys/retrieval/<run_name>" \
   --split val
 ```
 
@@ -93,11 +95,11 @@ Evaluate it on test data:
 
 ```bash
 uv run python scripts/evaluate.py \
-  --run-dir checkpoints/toys_baseline \
+  --run-dir "checkpoints/toys/retrieval/<run_name>" \
   --split test
 ```
 
-Evaluation loads the run's saved `config.yaml` and `best/` model. It reports Recall@K, NDCG@K, and loss.
+Evaluation loads the run's saved `configs/retrieval.yaml` and `best/` model. Data paths in the configuration must point to existing files, relative to the repository root or as absolute paths. Evaluation reports Recall@K, NDCG@K, and loss.
 
 Evaluation results are saved as `val_results.json` or `test_results.json` inside the run directory.
 

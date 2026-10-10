@@ -23,7 +23,7 @@ def main(
         typer.Option(
             exists=True,
             file_okay=False,
-            help="Directory containing `config.yaml` and `best/.`",
+            help="Run directory containing configs/retrieval.yaml and best/.",
         ),
     ],
     split: Annotated[
@@ -32,7 +32,7 @@ def main(
 ) -> None:
     """Evaluate a run's selected model and save its retrieval metrics."""
     run_dir = run_dir.resolve()
-    config = load_config(run_dir / "config.yaml")
+    config = load_config(run_dir / "configs" / "retrieval.yaml")
 
     set_seed(config.seed)
     device = get_device()

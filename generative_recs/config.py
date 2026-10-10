@@ -11,6 +11,26 @@ from pydantic import (
 )
 
 
+class EmbeddingConfig(BaseModel):
+    """Text encoder and batching settings for item embeddings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_name: str
+    max_seq_length: PositiveInt
+    batch_size: PositiveInt
+
+
+class PreparationConfig(BaseModel):
+    """Source files and embedding settings for data preparation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reviews_path: Path
+    metadata_path: Path
+    embedding: EmbeddingConfig
+
+
 class DataConfig(BaseModel):
     """Dataset paths and Semantic ID encoding settings."""
 
@@ -79,6 +99,14 @@ class RetrievalConfig(BaseModel):
     evaluation: EvaluationConfig
 
 
+def load_preparation_config(path: Path) -> PreparationConfig:
+    """Load and validate a data preparation YAML configuration."""
+    with open(path, encoding="utf-8") as file:
+        values = yaml.safe_load(file)
+
+    return PreparationConfig.model_validate(values)
+
+
 def load_config(path: Path) -> RetrievalConfig:
     """Load YAML and validate retrieval settings.
 
@@ -96,7 +124,7 @@ def load_config(path: Path) -> RetrievalConfig:
     return RetrievalConfig.model_validate(values)
 
 
-def save_config(config: RetrievalConfig, path: Path) -> None:
+def save_config(config: BaseModel, path: Path) -> None:
     """
     Save configuration to YAML file.
 

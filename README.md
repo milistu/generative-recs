@@ -41,21 +41,36 @@ Run shell commands from the repository root. Configuration paths are relative to
 
 ### Prepare the data and Semantic IDs
 
-Run these notebooks in order:
+To prepare the data and generate embeddings, run:
 
-1. `notebooks/01_prepare_data.ipynb` prepares interaction splits and item embeddings.
-2. `notebooks/02_train_rqvae.ipynb` trains the quantizer and generates Semantic IDs.
-
-The notebooks use paths relative to the `notebooks/` directory.
-
-Before training the recommender, these files must exist:
-
-```text
-data/toys/processed/baseline/splits.parquet
-checkpoints/toys/quantization/baseline/semantic_ids.pt
+```bash
+uv run --locked python scripts/prepare_data.py \
+  --config configs/toys/preparation.yaml \
+  --output-dir data/toys/processed
 ```
 
-Keep the prepared data and Semantic IDs consistent between training and evaluation.
+The command prints its output directory, such as `data/toys/processed/preparation_<timestamp>/`.
+
+Before running `notebooks/02_train_rqvae.ipynb`, set its paths:
+
+```python
+DATA_DIR = Path("../data/toys/processed/<preparation_run>")
+OUTPUT_DIR = Path("../checkpoints/toys/quantization/<quantization_run>")
+```
+
+Replace `<preparation_run>` with the directory created above and choose a new name for `<quantization_run>`. Notebook paths are relative to `notebooks/`.
+
+Run the notebook to train the quantizer and generate Semantic IDs.
+
+In the retrieval YAML you intend to use, update these fields:
+
+```yaml
+data:
+  splits_path: data/toys/processed/<preparation_run>/splits.parquet
+  semantic_ids_path: checkpoints/toys/quantization/<quantization_run>/semantic_ids.pt
+```
+
+Keep the other `data` settings unchanged. The Semantic IDs must come from the embeddings generated in the selected preparation run.
 
 ### Run a quick check
 

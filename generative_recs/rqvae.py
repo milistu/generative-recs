@@ -20,6 +20,9 @@ class RQVAE(nn.Module):
     ):
         super().__init__()
 
+        self.num_quantizers = num_quantizers
+        self.codebook_size = codebook_size
+
         # Build encoder: input_dim -> hidden_dims -> latent_dim
         encoder_layers: list[nn.Module] = []
         dims = [input_dim] + hidden_dims
@@ -81,7 +84,7 @@ class RQVAE(nn.Module):
         Returns:
             x_recon: Reconstructed embeddings (batch, input_dim)
             indices: Semantic ID codewords (batch, num_quantizers)
-            recon_loss: MSE reconstruction loss (scalar)
+            recon_loss: Mean cosine reconstruction loss (scalar)
             commit_loss: Commitment loss (scalar)
         """
         z = self.encode(x)

@@ -32,7 +32,7 @@ def main(
 ) -> None:
     """Evaluate a run's selected model and save its retrieval metrics."""
     run_dir = run_dir.resolve()
-    config = load_config(run_dir / "configs" / "retrieval.yaml")
+    config = load_config(run_dir / "configs" / "retrieval.yaml", "retrieval")
 
     set_seed(config.seed)
     device = get_device()

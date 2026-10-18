@@ -6,7 +6,7 @@ import torch
 import typer
 from loguru import logger
 
-from generative_recs.config import load_preparation_config, save_config
+from generative_recs.config import load_config, save_config
 from generative_recs.preparation import build_splits, generate_embeddings, load_items, load_reviews
 
 
@@ -31,7 +31,7 @@ def main(
     ],
 ) -> None:
     """Prepare interaction splits, item text, and embeddings."""
-    config = load_preparation_config(config_path)
+    config = load_config(config_path, "preparation")
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"

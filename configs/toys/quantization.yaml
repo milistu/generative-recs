@@ -1,0 +1,24 @@
+seed: 42
+preparation_dir: data/toys/processed/preparation_20261014_203034
+
+model:
+  input_dim: 768
+  hidden_dims: [512, 256, 128]
+  latent_dim: 32
+  num_quantizers: 3
+  codebook_size: 256
+  use_cosine_sim: false
+  kmeans_init: true
+  kmeans_iters: 10
+  commitment_weight: 0.25
+
+training:
+  batch_size: 1024
+  max_steps: 20000
+  learning_rate: 0.0003
+  weight_decay: 0.01
+  evaluate_every: 50
+  early_stopping_min_steps: 8000
+  early_stopping_usage: 0.95
+  early_stopping_patience: 20
+  early_stopping_min_delta: 0.0001

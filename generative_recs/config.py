@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import (
@@ -29,6 +30,49 @@ class PreparationConfig(BaseModel):
     reviews_path: Path
     metadata_path: Path
     embedding: EmbeddingConfig
+
+
+class QuantizationModelConfig(BaseModel):
+    """RQ-VAE architecture and codebook settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    input_dim: PositiveInt
+    hidden_dims: list[PositiveInt] = Field(min_length=1)
+    latent_dim: PositiveInt
+    num_quantizers: PositiveInt
+    codebook_size: PositiveInt
+    use_cosine_sim: bool
+    kmeans_init: bool
+    kmeans_iters: PositiveInt
+    commitment_weight: NonNegativeFloat
+
+
+class QuantizationTrainingConfig(BaseModel):
+    """Quantizer optimization, evaluation, and stopping settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_size: PositiveInt
+    max_steps: PositiveInt
+    learning_rate: PositiveFloat
+    weight_decay: NonNegativeFloat
+    evaluate_every: PositiveInt
+    early_stopping_min_steps: PositiveInt
+    early_stopping_usage: float = Field(ge=0.0, le=1.0)
+    early_stopping_patience: PositiveInt | None
+    early_stopping_min_delta: NonNegativeFloat
+
+
+class QuantizationConfig(BaseModel):
+    """Prepared data and settings for a quantizer training run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seed: int = Field(ge=0, lt=2**32)
+    preparation_dir: Path
+    model: QuantizationModelConfig
+    training: QuantizationTrainingConfig
 
 
 class DataConfig(BaseModel):
@@ -99,19 +143,14 @@ class RetrievalConfig(BaseModel):
     evaluation: EvaluationConfig
 
 
-def load_preparation_config(path: Path) -> PreparationConfig:
-    """Load and validate a data preparation YAML configuration."""
-    with open(path, encoding="utf-8") as file:
-        values = yaml.safe_load(file)
-
-    return PreparationConfig.model_validate(values)
-
-
-def load_config(path: Path) -> RetrievalConfig:
-    """Load YAML and validate retrieval settings.
+def load_config(
+    path: Path, config_type: Literal["preparation", "quantization", "retrieval"]
+) -> PreparationConfig | QuantizationConfig | RetrievalConfig:
+    """Load YAML and validate configuration settings.
 
     Args:
         path: Path to YAML configuration file.
+        config_type: Type of configuration to load.
 
     Raises:
         OSError: The configuration file cannot be read.
@@ -121,7 +160,15 @@ def load_config(path: Path) -> RetrievalConfig:
     with open(path, encoding="utf-8") as file:
         values = yaml.safe_load(file)
 
-    return RetrievalConfig.model_validate(values)
+    match config_type:
+        case "preparation":
+            return PreparationConfig.model_validate(values)
+        case "quantization":
+            return QuantizationConfig.model_validate(values)
+        case "retrieval":
+            return RetrievalConfig.model_validate(values)
+        case _:
+            raise ValueError(f"Invalid configuration type: {config_type}")
 
 
 def save_config(config: BaseModel, path: Path) -> None:

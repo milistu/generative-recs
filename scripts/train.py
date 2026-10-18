@@ -46,7 +46,7 @@ def main(
 ) -> None:
     """Train the retrieval model and export the best validation checkpoint."""
 
-    config = load_config(config_path)
+    config = load_config(config_path, "retrieval")
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"

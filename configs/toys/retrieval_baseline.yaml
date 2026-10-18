@@ -1,8 +1,8 @@
 seed: 42
 
 data:
-  splits_path: "data/toys/processed/baseline/splits.parquet"
-  mappings_path: "checkpoints/toys/quantization/baseline/mappings.pt"
+  splits_path: "outputs/toys/baseline/preparation/splits.parquet"
+  mappings_path: "outputs/toys/baseline/quantization/mappings.pt"
   max_seq_len: 20
   sliding_window: true
   codebook_size: 256

@@ -220,5 +220,5 @@ skills-lock.json
 *.pt
 *.duckdb*
 *.DS_Store
-checkpoints
 data
+outputs/

@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
 from typing import Annotated
@@ -40,7 +39,7 @@ def main(
         typer.Option(
             "--output-dir",
             file_okay=False,
-            help="Parent directory for timestamped training runs.",
+            help="Directory to create for this training run; must not already exist.",
         ),
     ],
 ) -> None:
@@ -48,14 +47,12 @@ def main(
 
     config = load_config(config_path, "retrieval")
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output_dir / f"{config_path.stem}_{timestamp}"
-    run_dir.mkdir(parents=True, exist_ok=False)
-    logger.add(run_dir / "run.log", level="INFO")
-    configs_dir = run_dir / "configs"
+    output_dir.mkdir(parents=True, exist_ok=False)
+    logger.add(output_dir / "run.log", level="INFO")
+    configs_dir = output_dir / "configs"
     configs_dir.mkdir()
     save_config(config, configs_dir / "retrieval.yaml")
-    logger.info(f"Output directory: {run_dir}")
+    logger.info(f"Output directory: {output_dir}")
 
     set_seed(config.seed)
     device = get_device()
@@ -104,7 +101,7 @@ def main(
     )
 
     training_args = Seq2SeqTrainingArguments(
-        output_dir=str(run_dir),
+        output_dir=str(output_dir),
         max_steps=config.training.max_steps,
         per_device_train_batch_size=config.training.batch_size,
         per_device_eval_batch_size=config.evaluation.batch_size,
@@ -152,7 +149,7 @@ def main(
             "No best checkpoint was selected. Check evaluation frequency and training length."
         )
 
-    best_dir = run_dir / "best"
+    best_dir = output_dir / "best"
     trainer.save_model(str(best_dir))
 
     logger.info(

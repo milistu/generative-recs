@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -26,21 +25,19 @@ def main(
         typer.Option(
             "--output-dir",
             file_okay=False,
-            help="Parent directory for timestamped preparation runs.",
+            help="Directory to create for this preparation run; must not already exist.",
         ),
     ],
 ) -> None:
     """Prepare interaction splits, item text, and embeddings."""
     config = load_config(config_path, "preparation")
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output_dir / f"{config_path.stem}_{timestamp}"
-    run_dir.mkdir(parents=True, exist_ok=False)
+    output_dir.mkdir(parents=True, exist_ok=False)
 
-    logger.add(run_dir / "run.log", level="INFO")
-    logger.info(f"Output directory: {run_dir}")
+    logger.add(output_dir / "run.log", level="INFO")
+    logger.info(f"Output directory: {output_dir}")
 
-    configs_dir = run_dir / "configs"
+    configs_dir = output_dir / "configs"
     configs_dir.mkdir()
 
     save_config(config, configs_dir / "preparation.yaml")
@@ -55,11 +52,11 @@ def main(
 
     embeddings = generate_embeddings(items, config.embedding)
 
-    splits.to_parquet(run_dir / "splits.parquet", index=False)
-    items.to_parquet(run_dir / "items.parquet", index=False)
-    torch.save(embeddings, run_dir / "embeddings.pt")
+    splits.to_parquet(output_dir / "splits.parquet", index=False)
+    items.to_parquet(output_dir / "items.parquet", index=False)
+    torch.save(embeddings, output_dir / "embeddings.pt")
 
-    logger.info(f"Preparation complete. Saved outputs to {run_dir}")
+    logger.info(f"Preparation complete. Saved outputs to {output_dir}")
 
 
 if __name__ == "__main__":

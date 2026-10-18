@@ -1,130 +1,98 @@
 # Generative Recs
 
-Build, train, and evaluate generative recommender systems.
-Starting with a reproduction of [Recommender Systems with Generative Retrieval](https://arxiv.org/abs/2305.05065) (NeurIPS 2023). The method is referred to as **TIGER** (Transformer Index for GEnerative Recommenders).
+Build and experiment with generative recommender systems, starting with an implementation of [TIGER: Recommender Systems with Generative Retrieval](https://arxiv.org/abs/2305.05065).
 
 ## Setup
 
-### 1. Install dependencies
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync
+uv sync --locked
 ```
 
-### 2. Download the dataset
-
-This project uses the [Amazon Product Reviews 2014](https://cseweb.ucsd.edu/~jmcauley/datasets/amazon/links.html) dataset (same as the TIGER paper). Download the **5-core** review data and metadata for your category of choice.
-
-For example, for Toys and Games:
-
-1. Download `reviews_Toys_and_Games_5.json.gz` (5-core reviews) and `meta_Toys_and_Games.json.gz` (metadata)
-2. Place them in `data/2014/` and decompress:
+Download the **Toys and Games 5-core reviews and metadata** from [Amazon Reviews 2014](https://cseweb.ucsd.edu/~jmcauley/datasets/amazon/links.html).
+Place both archives in `data/2014/` and decompress them:
 
 ```bash
 gunzip data/2014/reviews_Toys_and_Games_5.json.gz
 gunzip data/2014/meta_Toys_and_Games.json.gz
 ```
 
-Your `data/2014/` directory should look like:
+## Run the pipeline
 
-```
-data/2014/
-├── reviews_Toys_and_Games_5.json
-└── meta_Toys_and_Games.json
-```
+Run commands from the repository root. The supplied YAML configs connect the stages below.
+Each preparation or training command writes directly to `--output-dir`, which must not already exist.
 
-For other categories (Beauty, Sports and Outdoors), find the corresponding files on the [dataset page](https://cseweb.ucsd.edu/~jmcauley/datasets/amazon/links.html) and follow the same pattern.
+### 1. Prepare data
 
-## Usage
-
-Run shell commands from the repository root. Configuration paths are relative to that directory.
-
-### Prepare the data and Semantic IDs
-
-To prepare the data and generate embeddings, run:
+Create interaction splits, item text, and embeddings:
 
 ```bash
 uv run --locked python scripts/prepare_data.py \
   --config configs/toys/preparation.yaml \
-  --output-dir data/toys/processed
+  --output-dir outputs/toys/baseline/preparation
 ```
 
-The command prints its output directory, such as `data/toys/processed/preparation_<timestamp>/`.
+### 2. Generate Semantic IDs
 
-Set `preparation_dir` in `configs/toys/quantization.yaml` to the directory created above:
-
-```yaml
-preparation_dir: data/toys/processed/<preparation_run>
-```
-
-Train the quantizer and generate Semantic IDs:
+Train the quantizer and save its selected model and item-to-ID mappings:
 
 ```bash
 uv run --locked python scripts/train_quantizer.py \
   --config configs/toys/quantization.yaml \
-  --output-dir checkpoints/toys/quantization
+  --output-dir outputs/toys/baseline/quantization
 ```
 
-The command creates a `quantization_<timestamp>/` run directory containing the selected model, both item-to-ID and ID-to-item mappings in `mappings.pt`, metrics, training history, logs, and preparation and quantization configs.
-
-In the retrieval YAML you intend to use, update these fields:
-
-```yaml
-data:
-  splits_path: data/toys/processed/<preparation_run>/splits.parquet
-  mappings_path: checkpoints/toys/quantization/<quantization_run>/mappings.pt
-```
-
-Keep the other `data` settings unchanged. The Semantic IDs must come from the embeddings generated in the selected preparation run.
-Replace `<quantization_run>` with the run directory printed by quantizer training.
-
-### Run a quick check
-
-The smoke configuration runs 20 training steps on 1,024 training examples, with evaluation on 128 validation examples every 10 steps.
+### 3. Train the recommender
 
 ```bash
-uv run python scripts/train.py \
-  --config configs/toys/retrieval_smoke.yaml \
-  --output-dir checkpoints/toys/retrieval
-```
-
-### Train the baseline
-
-```bash
-uv run python scripts/train.py \
+uv run --locked python scripts/train.py \
   --config configs/toys/retrieval_baseline.yaml \
-  --output-dir checkpoints/toys/retrieval
+  --output-dir outputs/toys/baseline/retrieval
 ```
 
-The baseline uses the full dataset and trains for 100,000 steps. By default, the checkpoint with highest validation Recall@10 is exported to `best/`.
+The baseline trains for 100,000 steps and saves the model with the highest validation **Recall@10** in `retrieval/best/`.
 
-`--output-dir` is the parent directory and can contain existing runs. Training creates a new `<config_name>_<UTC timestamp>/` subdirectory and logs its path. Settings are saved in `configs/retrieval.yaml` inside that run.
-
-### Evaluate a saved model
-
-Replace `<run_name>` with the run directory name printed by training.
-
-Evaluate on validation data:
+For a quick check first, use the smoke config to run 20 steps on a subset of the data:
 
 ```bash
-uv run python scripts/evaluate.py \
-  --run-dir "checkpoints/toys/retrieval/<run_name>" \
-  --split val
+uv run --locked python scripts/train.py \
+  --config configs/toys/retrieval_smoke.yaml \
+  --output-dir outputs/toys/smoke/retrieval
 ```
 
-Evaluate it on test data:
+### 4. Evaluate
 
 ```bash
-uv run python scripts/evaluate.py \
-  --run-dir "checkpoints/toys/retrieval/<run_name>" \
+uv run --locked python scripts/evaluate.py \
+  --run-dir outputs/toys/baseline/retrieval \
   --split test
 ```
 
-Evaluation loads the run's saved `configs/retrieval.yaml` and `best/` model. Data paths in the configuration must point to existing files, relative to the repository root or as absolute paths. Evaluation reports Recall@K, NDCG@K, and loss.
+Use `--split val` for validation. Evaluation loads the saved model and config, then writes Recall@5/10, NDCG@5/10, and loss to `test_results.json` or `val_results.json` in the retrieval directory.
 
-Evaluation results are saved as `val_results.json` or `test_results.json` inside the run directory.
+## Run another experiment
 
-## Citations
+Copy the relevant YAML from `configs/toys/`, adjust its settings, and choose a descriptive output path such as `outputs/toys/lower_lr/retrieval`. Unchanged stages can reuse existing outputs.
+
+For a new dataset or new Semantic IDs, update the input paths:
+
+| Config | Input paths |
+| --- | --- |
+| Preparation | `reviews_path`, `metadata_path` |
+| Quantization | `preparation_dir` |
+| Retrieval | `data.splits_path`, `data.mappings_path` |
+
+Train a new retrieval model when changing its Semantic IDs; existing model weights depend on the mappings used during training.
+
+## Inspect the quantizer
+
+Open [analyze_quantizer.ipynb](notebooks/analyze_quantizer.ipynb) and set `RUN_DIR` to a saved quantization directory. The notebook shows training curves, collisions, reconstruction quality, and similarity between items sharing ID prefixes.
+
+## References
+
+<details>
+<summary>Paper and dataset citations</summary>
 
 ```bibtex
 @article{rajput2023recommender,
@@ -156,3 +124,5 @@ Evaluation results are saved as `val_results.json` or `test_results.json` inside
   year={2015}
 }
 ```
+
+</details>

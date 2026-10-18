@@ -1,5 +1,5 @@
 seed: 42
-preparation_dir: data/toys/processed/preparation_20261014_203034
+preparation_dir: outputs/toys/baseline/preparation
 
 model:
   input_dim: 768

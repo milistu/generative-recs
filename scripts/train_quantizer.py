@@ -1,5 +1,4 @@
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from shutil import copy2
 from typing import Annotated
@@ -34,21 +33,19 @@ def main(
         typer.Option(
             "--output-dir",
             file_okay=False,
-            help="Parent directory for timestamped quantizer runs.",
+            help="Directory to create for this quantizer run; must not already exist.",
         ),
     ],
 ) -> None:
     """Train quantizer and generate Semantic IDs from its best checkpoint."""
     config = load_config(config_path, "quantization")
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output_dir / f"quantization_{timestamp}"
-    run_dir.mkdir(parents=True, exist_ok=False)
+    output_dir.mkdir(parents=True, exist_ok=False)
 
-    logger.add(run_dir / "run.log", level="INFO")
-    logger.info(f"Output directory: {run_dir}")
+    logger.add(output_dir / "run.log", level="INFO")
+    logger.info(f"Output directory: {output_dir}")
 
-    configs_dir = run_dir / "configs"
+    configs_dir = output_dir / "configs"
     configs_dir.mkdir()
     save_config(config, configs_dir / "quantization.yaml")
     copy2(
@@ -70,14 +67,14 @@ def main(
     model = RQVAE(**config.model.model_dump()).to(device)
 
     logger.info(f"Training on {len(asins):,} items for up to {config.training.max_steps:,} steps.")
-    train_quantizer(model, embeddings, config.training, run_dir)
+    train_quantizer(model, embeddings, config.training, output_dir)
 
     metrics = evaluate_quantizer(
         model,
         embeddings,
         config.training.batch_size,
     )
-    with (run_dir / "metrics.json").open("w", encoding="utf-8") as file:
+    with (output_dir / "metrics.json").open("w", encoding="utf-8") as file:
         json.dump(metrics, file, indent=2)
         file.write("\n")
 
@@ -87,10 +84,10 @@ def main(
             "asin_to_sid": asin_to_sid,
             "sid_to_asin": {v: k for k, v in asin_to_sid.items()},
         },
-        run_dir / "mappings.pt",
+        output_dir / "mappings.pt",
     )
 
-    logger.info(f"Quantization complete. Saved outputs to {run_dir}")
+    logger.info(f"Quantization complete. Saved outputs to {output_dir}")
 
 
 if __name__ == "__main__":

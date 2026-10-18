@@ -19,7 +19,7 @@ class TigerDataset(Dataset[dict[str, torch.Tensor]]):
 
     Args:
         splits_path: Path to splits.parquet
-        semantic_ids_path: Path to semantic_ids.pt
+        mappings_path: Path to mappings.pt
         split: Split to load
         codebook_size: Number of tokens in the codebook
         num_levels: Number of levels in the RQ-VAE including collision token
@@ -31,7 +31,7 @@ class TigerDataset(Dataset[dict[str, torch.Tensor]]):
     def __init__(
         self,
         splits_path: Path,
-        semantic_ids_path: Path,
+        mappings_path: Path,
         split: Literal["train", "val", "test"] = "train",
         codebook_size: int = 256,
         num_levels: int = 4,
@@ -58,8 +58,8 @@ class TigerDataset(Dataset[dict[str, torch.Tensor]]):
 
         # Load data
         df = pd.read_parquet(splits_path)
-        sid_data = torch.load(semantic_ids_path, weights_only=False)
-        self.asin_to_sid: dict[str, tuple[int, ...]] = sid_data["asin_to_sid"]
+        mappings = torch.load(mappings_path, weights_only=False)
+        self.asin_to_sid: dict[str, tuple[int, ...]] = mappings["asin_to_sid"]
 
         # Build samples based on split
         self.samples = self._build_samples(df, split, sliding_window)

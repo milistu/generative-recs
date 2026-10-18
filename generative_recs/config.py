@@ -81,7 +81,7 @@ class DataConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     splits_path: Path
-    semantic_ids_path: Path
+    mappings_path: Path
     max_seq_len: PositiveInt
     sliding_window: bool
     codebook_size: PositiveInt

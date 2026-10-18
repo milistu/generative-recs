@@ -2,7 +2,7 @@ seed: 42
 
 data:
   splits_path: "data/toys/processed/baseline/splits.parquet"
-  semantic_ids_path: "checkpoints/toys/quantization/baseline/semantic_ids.pt"
+  mappings_path: "checkpoints/toys/quantization/baseline/mappings.pt"
   max_seq_len: 20
   sliding_window: true
   codebook_size: 256

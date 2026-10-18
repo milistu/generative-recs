@@ -187,7 +187,7 @@ def generate_semantic_ids(
     asins: list[str],
     embeddings: torch.Tensor,
     batch_size: int,
-) -> tuple[dict[str, tuple[int, ...]], dict[tuple[int, ...], str]]:
+) -> dict[str, tuple[int, ...]]:
     """Generate unique item IDs using a trained quantizer.
 
     ASINs and embedding rows must have the same order. Append a collision
@@ -238,4 +238,4 @@ def generate_semantic_ids(
         f"largest group={max(counts.values(), default=0)}"
     )
 
-    return asin_to_sid, {v: k for k, v in asin_to_sid.items()}
+    return asin_to_sid

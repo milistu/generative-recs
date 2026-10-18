@@ -49,7 +49,7 @@ def main(
     config = load_config(config_path, "retrieval")
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"
+    run_dir = output_dir / f"{config_path.stem}_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
     logger.add(run_dir / "run.log", level="INFO")
     configs_dir = run_dir / "configs"
@@ -88,8 +88,8 @@ def main(
         lr_lambda=partial(inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps),
     )
 
-    sid_data = torch.load(
-        config.data.semantic_ids_path,
+    mappings = torch.load(
+        config.data.mappings_path,
         map_location="cpu",
         weights_only=False,
     )
@@ -99,7 +99,7 @@ def main(
         num_levels=config.data.num_levels,
         beam_size=config.evaluation.beam_size,
         codebook_size=config.data.codebook_size,
-        sid_to_asin=sid_data["sid_to_asin"],
+        sid_to_asin=mappings["sid_to_asin"],
         at_k=config.evaluation.at_k,
     )
 

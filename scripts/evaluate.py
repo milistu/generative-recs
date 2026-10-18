@@ -31,7 +31,6 @@ def main(
     ] = "val",
 ) -> None:
     """Evaluate a run's selected model and save its retrieval metrics."""
-    run_dir = run_dir.resolve()
     config = load_config(run_dir / "configs" / "retrieval.yaml", "retrieval")
 
     set_seed(config.seed)
@@ -42,8 +41,8 @@ def main(
 
     model = T5ForConditionalGeneration.from_pretrained(run_dir / "best").to(device)
 
-    sid_data = torch.load(
-        config.data.semantic_ids_path,
+    mappings = torch.load(
+        config.data.mappings_path,
         map_location="cpu",
         weights_only=False,
     )
@@ -54,7 +53,7 @@ def main(
         num_levels=dataset.num_levels,
         beam_size=model.generation_config.num_return_sequences,
         codebook_size=config.data.codebook_size,
-        sid_to_asin=sid_data["sid_to_asin"],
+        sid_to_asin=mappings["sid_to_asin"],
         at_k=config.evaluation.at_k,
     )
 

@@ -34,7 +34,7 @@ def main(
     config = load_config(config_path, "preparation")
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    run_dir = output_dir.resolve() / f"{config_path.stem}_{timestamp}"
+    run_dir = output_dir / f"{config_path.stem}_{timestamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
 
     logger.add(run_dir / "run.log", level="INFO")

@@ -51,26 +51,32 @@ uv run --locked python scripts/prepare_data.py \
 
 The command prints its output directory, such as `data/toys/processed/preparation_<timestamp>/`.
 
-Before running `notebooks/02_train_rqvae.ipynb`, set its paths:
+Set `preparation_dir` in `configs/toys/quantization.yaml` to the directory created above:
 
-```python
-DATA_DIR = Path("../data/toys/processed/<preparation_run>")
-OUTPUT_DIR = Path("../checkpoints/toys/quantization/<quantization_run>")
+```yaml
+preparation_dir: data/toys/processed/<preparation_run>
 ```
 
-Replace `<preparation_run>` with the directory created above and choose a new name for `<quantization_run>`. Notebook paths are relative to `notebooks/`.
+Train the quantizer and generate Semantic IDs:
 
-Run the notebook to train the quantizer and generate Semantic IDs.
+```bash
+uv run --locked python scripts/train_quantizer.py \
+  --config configs/toys/quantization.yaml \
+  --output-dir checkpoints/toys/quantization
+```
+
+The command creates a `quantization_<timestamp>/` run directory containing the selected model, both item-to-ID and ID-to-item mappings in `mappings.pt`, metrics, training history, logs, and preparation and quantization configs.
 
 In the retrieval YAML you intend to use, update these fields:
 
 ```yaml
 data:
   splits_path: data/toys/processed/<preparation_run>/splits.parquet
-  semantic_ids_path: checkpoints/toys/quantization/<quantization_run>/semantic_ids.pt
+  mappings_path: checkpoints/toys/quantization/<quantization_run>/mappings.pt
 ```
 
 Keep the other `data` settings unchanged. The Semantic IDs must come from the embeddings generated in the selected preparation run.
+Replace `<quantization_run>` with the run directory printed by quantizer training.
 
 ### Run a quick check
 

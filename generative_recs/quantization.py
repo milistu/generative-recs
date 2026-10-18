@@ -1,3 +1,4 @@
+from collections import Counter
 from math import isfinite
 from pathlib import Path
 
@@ -178,3 +179,63 @@ def train_quantizer(
     model.eval()
 
     logger.info(f"Loaded best checkpoint: step={best_step}, reconstruction={best_loss:.6f}")
+
+
+@torch.no_grad()
+def generate_semantic_ids(
+    model: RQVAE,
+    asins: list[str],
+    embeddings: torch.Tensor,
+    batch_size: int,
+) -> tuple[dict[str, tuple[int, ...]], dict[tuple[int, ...], str]]:
+    """Generate unique item IDs using a trained quantizer.
+
+    ASINs and embedding rows must have the same order. Append a collision
+    counter to each quantized ID, assigning counters in the supplied order.
+    Restore the model's original training/evaluation mode afterward.
+
+    Raises:
+        ValueError: ASINs and embeddings differ in length, ASINs repeat,
+            or a collision group exceeds the available counter tokens.
+    """
+    if len(asins) != len(embeddings):
+        raise ValueError("ASINs and embeddings must have the same length.")
+    if len(set(asins)) != len(asins):
+        raise ValueError("ASINs must be unique.")
+
+    device = next(model.parameters()).device
+    counts: Counter[tuple[int, ...]] = Counter()
+    asin_to_sid: dict[str, tuple[int, ...]] = {}
+    was_training = model.training
+
+    model.eval()
+    try:
+        for start in range(0, len(asins), batch_size):
+            batch = embeddings[start : start + batch_size].to(device)
+            indices = model.get_semantic_ids(batch).cpu().tolist()
+            batch_asins = asins[start : start + batch_size]
+
+            for asin, codes in zip(batch_asins, indices, strict=True):
+                prefix = tuple(codes)
+                counter = counts[prefix]
+
+                if counter >= model.codebook_size:
+                    raise ValueError(
+                        f"More than {model.codebook_size} items share ID {prefix}. "
+                        f"The collision counter exceeds the retrieval token range."
+                    )
+
+                sid = prefix + (counter,)
+                asin_to_sid[asin] = sid
+                counts[prefix] += 1
+
+    finally:
+        model.train(was_training)
+
+    logger.info(
+        f"Generated IDs for {len(asins)} items: {len(counts)} unique prefixes, "
+        f"{sum(count > 1 for count in counts.values())} collision groups, "
+        f"largest group={max(counts.values(), default=0)}"
+    )
+
+    return asin_to_sid, {v: k for k, v in asin_to_sid.items()}

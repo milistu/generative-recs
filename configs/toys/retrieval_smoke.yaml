@@ -18,6 +18,7 @@ model:
   dropout_rate: 0.1
 
 training:
+  optimizer: "adamw"
   batch_size: 32
   max_steps: 20
   learning_rate: 0.0003

@@ -107,6 +107,8 @@ class TrainingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    optimizer: Literal["adamw", "adafactor"] = "adamw"
+    adafactor_scale_parameter: bool = True
     batch_size: PositiveInt
     max_steps: PositiveInt
     learning_rate: PositiveFloat

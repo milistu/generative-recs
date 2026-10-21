@@ -7,7 +7,7 @@ import typer
 from loguru import logger
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
+from transformers import Adafactor, Seq2SeqTrainer, Seq2SeqTrainingArguments
 
 from generative_recs.config import load_config, save_config
 from generative_recs.dataset import TigerDataset, custom_collate
@@ -75,11 +75,24 @@ def main(
     ).to(device)
     total_params = get_num_params(model)
 
-    optimizer = AdamW(
-        model.parameters(),
-        lr=config.training.learning_rate,
-        weight_decay=config.training.weight_decay,
-    )
+    if config.training.optimizer == "adafactor":
+        optimizer = Adafactor(
+            model.parameters(),
+            lr=config.training.learning_rate,
+            weight_decay=config.training.weight_decay,
+            scale_parameter=config.training.adafactor_scale_parameter,
+            relative_step=False,  # Use our external learning-rate schedule.
+            warmup_init=False,
+            clip_threshold=1.0,
+            decay_rate=-0.8,
+            beta1=None,
+        )
+    else:
+        optimizer = AdamW(
+            model.parameters(),
+            lr=config.training.learning_rate,
+            weight_decay=config.training.weight_decay,
+        )
     scheduler = LambdaLR(
         optimizer,
         lr_lambda=partial(inv_sqrt_schedule, constant_lr_steps=config.training.constant_lr_steps),
@@ -136,7 +149,8 @@ def main(
     )
 
     logger.info(
-        f"Training: steps={config.training.max_steps:,}, train_samples={len(train_dataset):,}, "
+        f"Training: optimizer={config.training.optimizer}, lr={config.training.learning_rate}, "
+        f"steps={config.training.max_steps:,}, train_samples={len(train_dataset):,}, "
         f"val_samples={len(val_dataset):,}, parameters={total_params:,}",
     )
 

@@ -111,14 +111,10 @@ class RQVAE(nn.Module):
 
 
 class UsageTracker:
-    """Tracks codebook utilization during training via normalized entropy.
+    """Track code assignments across an item catalog.
 
-    Accumulates how often each codebook entry is selected across training steps.
-    Measures usage as normalized Shannon entropy per quantizer level:
-    - 1.0 = perfectly uniform usage (all entries used equally)
-    - 0.0 = complete collapse (everything maps to one entry)
-
-    The paper trains until usage >= 0.8 across all levels.
+    Active-code fraction measures how many entries are used.
+    Normalized entropy measures how evenly assignments are distributed.
     """
 
     def __init__(self, num_quantizers: int, codebook_size: int, device: torch.device):
@@ -140,19 +136,23 @@ class UsageTracker:
             )
             self.frequencies[level] += counts
 
-    def get_usage(self) -> list[float]:
-        """Get normalized entropy per quantizer level.
+    def get_normalized_entropy(self) -> list[float]:
+        """Return normalized assignment entropy for each codebook.
 
-        Returns:
-            List of floats in [0, 1], one per quantizer level.
+        One means perfectly uniform assignments; zero means all items
+        use the same entry.
         """
-        usages = []
+        entropies = []
         for level_freq in self.frequencies:
             probs = level_freq / level_freq.sum()
             probs = probs[probs > 0]
             entropy = -torch.sum(probs * torch.log2(probs))
-            usages.append((entropy / self.max_entropy).item())
-        return usages
+            entropies.append((entropy / self.max_entropy).item())
+        return entropies
+
+    def get_active_fraction(self) -> list[float]:
+        """Return the fraction of entries used in each codebook."""
+        return (self.frequencies > 0).float().mean(dim=1).tolist()
 
     def reset(self) -> None:
         """Reset all accumulated frequencies."""

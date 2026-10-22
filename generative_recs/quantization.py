@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from loguru import logger
 from torch.utils.data import DataLoader
 
@@ -16,14 +17,14 @@ def evaluate_quantizer(
     model: RQVAE,
     embeddings: torch.Tensor,
     batch_size: int,
-) -> dict[str, float]:
-    """Measure reconstruction loss and code usage across an item catalog.
+) -> dict[str, float | int]:
+    """Measure reconstruction, code usage, and prefix collisions.
 
-    Evaluate after the quantizer's codebooks have been initialised.
-    Recompute usage from scratch and restore the model's original mode.
+    Squared error is summed over embedding dimensions and averaged
+    across items. Prefix collisions exclude the final collision counter.
 
-    Usage is normalised entropy per quantizer level: higher values mean
-    more evenly distributed assignments, not the fraction of active codes.
+    Evaluate after codebook initialization. Recompute catalog metrics
+    from scratch and restore the model's original mode afterward.
 
     Raises:
         ValueError: The embedding matrix contains no items.
@@ -38,8 +39,11 @@ def evaluate_quantizer(
         device=device,
     )
 
-    was_training = model.training
+    prefix_counts: Counter[tuple[int, ...]] = Counter()
     total_recon_loss = 0.0
+    total_cosine_error = 0.0
+    total_squared_error = 0.0
+    was_training = model.training
 
     model.eval()
 
@@ -47,17 +51,33 @@ def evaluate_quantizer(
         for batch in embeddings.split(batch_size):
             batch = batch.to(device)
 
-            _, indices, recon_loss, _ = model(batch)
+            reconstructed, indices, recon_loss, _ = model(batch)
 
             total_recon_loss += recon_loss.item() * len(batch)
+            total_cosine_error += (
+                (1 - F.cosine_similarity(batch, reconstructed, dim=1)).sum().item()
+            )
+            total_squared_error += (batch - reconstructed).square().sum(dim=1).sum().item()
             tracker.update(indices)
+            prefix_counts.update(tuple(codes) for codes in indices.cpu().tolist())
     finally:
         model.train(was_training)
 
-    return {
+    metrics: dict[str, float | int] = {
+        "num_items": len(embeddings),
         "recon_loss": total_recon_loss / len(embeddings),
-        **{f"usage_level_{level}": usage for level, usage in enumerate(tracker.get_usage())},
+        "cosine_error": total_cosine_error / len(embeddings),
+        "squared_l2_error": total_squared_error / len(embeddings),
+        "unique_prefixes": len(prefix_counts),
+        "collision_groups": sum(count > 1 for count in prefix_counts.values()),
+        "items_in_collision_groups": sum(count for count in prefix_counts.values() if count > 1),
+        "largest_collision_group": max(prefix_counts.values()),
     }
+    for level, entropy in enumerate(tracker.get_normalized_entropy()):
+        metrics[f"normalized_entropy_level_{level}"] = entropy
+    for level, fraction in enumerate(tracker.get_active_fraction()):
+        metrics[f"active_fraction_level_{level}"] = fraction
+    return metrics
 
 
 def train_quantizer(
@@ -122,7 +142,9 @@ def train_quantizer(
 
             metrics = evaluate_quantizer(model, embeddings, config.batch_size)
             current_loss = metrics["recon_loss"]
-            usage = [metrics[f"usage_level_{i}"] for i in range(model.num_quantizers)]
+            entropy = [
+                metrics[f"normalized_entropy_level_{i}"] for i in range(model.num_quantizers)
+            ]
 
             if not isfinite(current_loss):
                 raise RuntimeError(f"Non-finite evaluation metric at step {step}")
@@ -149,14 +171,14 @@ def train_quantizer(
             )
             logger.info(
                 f"Step {step}: catalog reconstruction={current_loss:.6f}, "
-                f"usage={[round(value, 3) for value in usage]}"
+                f"entropy={[round(value, 3) for value in entropy]}"
             )
 
             patience = config.early_stopping_patience
             eligible = (
                 patience is not None
                 and step >= config.early_stopping_min_steps
-                and min(usage) >= config.early_stopping_usage
+                and min(entropy) >= config.early_stopping_usage
             )
 
             if not eligible:

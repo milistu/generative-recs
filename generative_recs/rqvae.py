@@ -20,6 +20,7 @@ class RQVAE(nn.Module):
         kmeans_iters: int = 10,
         commitment_weight: float = 0.25,
         reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine",
+        rotation_trick: bool = True,
     ):
         super().__init__()
 
@@ -45,6 +46,7 @@ class RQVAE(nn.Module):
             kmeans_init=kmeans_init,
             kmeans_iters=kmeans_iters,
             commitment_weight=commitment_weight,
+            rotation_trick=rotation_trick,
         )
 
         # Build decoder: latent_dim -> reversed hidden_dims -> input_dim

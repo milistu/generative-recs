@@ -12,6 +12,7 @@ model:
   kmeans_iters: 10
   commitment_weight: 0.25
   reconstruction_loss: cosine
+  rotation_trick: true
 
 training:
   batch_size: 1024

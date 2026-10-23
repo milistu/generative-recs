@@ -47,6 +47,7 @@ class QuantizationModelConfig(BaseModel):
     kmeans_iters: PositiveInt
     commitment_weight: NonNegativeFloat
     reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine"
+    rotation_trick: bool = True
 
 
 class QuantizationTrainingConfig(BaseModel):

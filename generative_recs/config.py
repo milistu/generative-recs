@@ -46,6 +46,7 @@ class QuantizationModelConfig(BaseModel):
     kmeans_init: bool
     kmeans_iters: PositiveInt
     commitment_weight: NonNegativeFloat
+    reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine"
 
 
 class QuantizationTrainingConfig(BaseModel):

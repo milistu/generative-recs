@@ -11,6 +11,7 @@ model:
   kmeans_init: true
   kmeans_iters: 10
   commitment_weight: 0.25
+  reconstruction_loss: cosine
 
 training:
   batch_size: 1024

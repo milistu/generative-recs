@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 import torch.nn as nn
 from vector_quantize_pytorch import ResidualVQ
@@ -17,11 +19,13 @@ class RQVAE(nn.Module):
         kmeans_init: bool = True,
         kmeans_iters: int = 10,
         commitment_weight: float = 0.25,
+        reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine",
     ):
         super().__init__()
 
         self.num_quantizers = num_quantizers
         self.codebook_size = codebook_size
+        self.reconstruction_loss = reconstruction_loss
 
         # Build encoder: input_dim -> hidden_dims -> latent_dim
         encoder_layers: list[nn.Module] = []
@@ -81,17 +85,26 @@ class RQVAE(nn.Module):
         Args:
             x: Input embeddings (batch, input_dim)
 
+        Reconstruction loss is averaged over items. Squared L2 sums
+        squared differences over embedding dimensions before averaging.
+
         Returns:
             x_recon: Reconstructed embeddings (batch, input_dim)
             indices: Semantic ID codewords (batch, num_quantizers)
-            recon_loss: Mean cosine reconstruction loss (scalar)
+            recon_loss: Configured reconstruction loss (scalar)
             commit_loss: Commitment loss (scalar)
         """
         z = self.encode(x)
         z_q, indices, commit_loss = self.quantize(z)
         x_recon = self.decode(z_q)
 
-        recon_loss = 1 - self.cosine_similarity(x, x_recon).mean()
+        match self.reconstruction_loss:
+            case "cosine":
+                recon_loss = 1 - self.cosine_similarity(x, x_recon).mean()
+            case "squared_l2":
+                recon_loss = (x - x_recon).square().sum(dim=1).mean()
+            case _:
+                raise ValueError(f"Unknown reconstruction loss: {self.reconstruction_loss}")
 
         return x_recon, indices, recon_loss, commit_loss.sum()
 

@@ -21,12 +21,20 @@ class RQVAE(nn.Module):
         commitment_weight: float = 0.25,
         reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine",
         rotation_trick: bool = True,
+        codebook_update: Literal["ema", "gradient"] = "ema",
     ):
         super().__init__()
+
+        if codebook_update not in ("ema", "gradient"):
+            raise ValueError(f"Unknown codebook update mode: {codebook_update}")
+        if codebook_update == "gradient" and use_cosine_sim:
+            raise ValueError("Gradient-trained codebooks require use_cosine_sim=False.")
 
         self.num_quantizers = num_quantizers
         self.codebook_size = codebook_size
         self.reconstruction_loss = reconstruction_loss
+        self.codebook_update = codebook_update
+        self.commitment_weight = commitment_weight
 
         # Build encoder: input_dim -> hidden_dims -> latent_dim
         encoder_layers: list[nn.Module] = []
@@ -45,8 +53,10 @@ class RQVAE(nn.Module):
             use_cosine_sim=use_cosine_sim,
             kmeans_init=kmeans_init,
             kmeans_iters=kmeans_iters,
-            commitment_weight=commitment_weight,
+            commitment_weight=commitment_weight if codebook_update == "ema" else 0.0,
             rotation_trick=rotation_trick,
+            ema_update=codebook_update == "ema",
+            learnable_codebook=codebook_update == "gradient",
         )
 
         # Build decoder: latent_dim -> reversed hidden_dims -> input_dim
@@ -65,15 +75,39 @@ class RQVAE(nn.Module):
         """Encode input to latent representation."""
         return self.encoder(x)
 
-    def quantize(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Quantize latent representation.
+    def quantize(
+        self, z: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Quantize latent vectors and calculate auxiliary losses.
+
+        EMA retains the library's dimension-averaged commitment loss.
+        Gradient mode sums squared errors over dimensions and levels,
+        then averages over items. Commitment loss updates the encoder;
+        codebook loss updates only the selected codebook entries.
 
         Returns:
             quantized: Quantized latent vectors (batch, latent_dim)
             indices: Codebook indices per level (batch, num_quantizers)
-            commit_loss: Commitment loss per quantizer level (num_quantizers,)
+            commit_loss: Weighted commitment loss (scalar)
+            codebook_loss: Codebook loss (scalar); zero in EMA mode
         """
-        return self.quantizer(z)
+        if self.codebook_update == "ema":
+            quantized, indices, commit_loss = self.quantizer(z)
+            return quantized, indices, commit_loss.sum(), z.new_zeros(())
+
+        quantized, indices, _, codes = self.quantizer(z, return_all_codes=True)
+        residual = z
+        commit_loss = z.new_zeros(())
+        codebook_loss = z.new_zeros(())
+        for selected in codes:
+            codebook_loss = codebook_loss + (
+                (selected - residual.detach()).square().sum(dim=-1).mean()
+            )
+            commit_loss = commit_loss + ((residual - selected.detach()).square().sum(dim=-1).mean())
+            # Later levels must not update earlier codebooks through the residual.
+            residual = residual - selected.detach()
+
+        return quantized, indices, self.commitment_weight * commit_loss, codebook_loss
 
     def decode(self, z_q: torch.Tensor) -> torch.Tensor:
         """Decode quantized representation back to input space."""
@@ -81,7 +115,7 @@ class RQVAE(nn.Module):
 
     def forward(
         self, x: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Full forward pass: encode -> quantize -> decode.
 
         Args:
@@ -94,10 +128,11 @@ class RQVAE(nn.Module):
             x_recon: Reconstructed embeddings (batch, input_dim)
             indices: Semantic ID codewords (batch, num_quantizers)
             recon_loss: Configured reconstruction loss (scalar)
-            commit_loss: Commitment loss (scalar)
+            commit_loss: Weighted commitment loss (scalar)
+            codebook_loss: Codebook loss (scalar); zero in EMA mode
         """
         z = self.encode(x)
-        z_q, indices, commit_loss = self.quantize(z)
+        z_q, indices, commit_loss, codebook_loss = self.quantize(z)
         x_recon = self.decode(z_q)
 
         match self.reconstruction_loss:
@@ -108,7 +143,7 @@ class RQVAE(nn.Module):
             case _:
                 raise ValueError(f"Unknown reconstruction loss: {self.reconstruction_loss}")
 
-        return x_recon, indices, recon_loss, commit_loss.sum()
+        return x_recon, indices, recon_loss, commit_loss, codebook_loss
 
     @torch.no_grad()
     def get_semantic_ids(self, x: torch.Tensor) -> torch.Tensor:
@@ -121,7 +156,7 @@ class RQVAE(nn.Module):
             indices: Semantic ID codewords (batch, num_quantizers)
         """
         z = self.encode(x)
-        _, indices, _ = self.quantize(z)
+        _, indices, _ = self.quantizer(z)
         return indices
 
 

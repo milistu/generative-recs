@@ -51,7 +51,7 @@ def evaluate_quantizer(
         for batch in embeddings.split(batch_size):
             batch = batch.to(device)
 
-            reconstructed, indices, recon_loss, _ = model(batch)
+            reconstructed, indices, recon_loss, _, _ = model(batch)
 
             total_recon_loss += recon_loss.item() * len(batch)
             total_cosine_error += (
@@ -116,6 +116,7 @@ def train_quantizer(
     should_stop = False
     recon_sum = 0.0
     commit_sum = 0.0
+    codebook_sum = 0.0
     sample_count = 0
 
     model.train()
@@ -124,8 +125,8 @@ def train_quantizer(
             batch = batch.to(device)
             optimizer.zero_grad(set_to_none=True)
 
-            _, _, recon_loss, commit_loss = model(batch)
-            loss = recon_loss + commit_loss
+            _, _, recon_loss, commit_loss, codebook_loss = model(batch)
+            loss = recon_loss + commit_loss + codebook_loss
             if not torch.isfinite(loss).item():
                 raise RuntimeError(f"Non-finite loss at step {step + 1}")
 
@@ -135,6 +136,7 @@ def train_quantizer(
 
             recon_sum += recon_loss.item() * len(batch)
             commit_sum += commit_loss.item() * len(batch)
+            codebook_sum += codebook_loss.item() * len(batch)
             sample_count += len(batch)
 
             if step % config.evaluate_every != 0 and step != config.max_steps:
@@ -154,10 +156,11 @@ def train_quantizer(
                     "step": step,
                     "train_recon_loss": recon_sum / sample_count,
                     "train_commit_loss": commit_sum / sample_count,
+                    "train_codebook_loss": codebook_sum / sample_count,
                     **{f"eval_{name}": value for name, value in metrics.items()},
                 }
             )
-            recon_sum = commit_sum = 0.0
+            recon_sum = commit_sum = codebook_sum = 0.0
             sample_count = 0
 
             if current_loss < best_loss:

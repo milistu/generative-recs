@@ -48,6 +48,7 @@ class QuantizationModelConfig(BaseModel):
     commitment_weight: NonNegativeFloat
     reconstruction_loss: Literal["cosine", "squared_l2"] = "cosine"
     rotation_trick: bool = True
+    codebook_update: Literal["ema", "gradient"] = "ema"
 
 
 class QuantizationTrainingConfig(BaseModel):

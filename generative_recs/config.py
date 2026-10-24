@@ -56,6 +56,7 @@ class QuantizationTrainingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    optimizer: Literal["adamw", "adagrad"] = "adamw"
     batch_size: PositiveInt
     max_steps: PositiveInt
     learning_rate: PositiveFloat

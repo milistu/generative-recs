@@ -100,7 +100,8 @@ def train_quantizer(
         batch_size=config.batch_size,
         shuffle=True,
     )
-    optimizer = torch.optim.AdamW(
+    optimizer_class = torch.optim.Adagrad if config.optimizer == "adagrad" else torch.optim.AdamW
+    optimizer = optimizer_class(
         model.parameters(),
         lr=config.learning_rate,
         weight_decay=config.weight_decay,

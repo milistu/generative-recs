@@ -39,19 +39,37 @@ def main(
         typer.Option(
             "--output-dir",
             file_okay=False,
-            help="Directory to create for this training run; must not already exist.",
+            help="Run directory; must be new unless resuming one of its checkpoints.",
         ),
     ],
+    resume_from_checkpoint: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            help="Checkpoint in the run directory to resume with the same configuration.",
+        ),
+    ] = None,
 ) -> None:
-    """Train the retrieval model and export the best validation checkpoint."""
+    """Train or resume the retrieval model and export the best validation checkpoint."""
 
     config = load_config(config_path, "retrieval")
 
-    output_dir.mkdir(parents=True, exist_ok=False)
-    logger.add(output_dir / "run.log", level="INFO")
     configs_dir = output_dir / "configs"
-    configs_dir.mkdir()
-    save_config(config, configs_dir / "retrieval.yaml")
+    if resume_from_checkpoint is None:
+        output_dir.mkdir(parents=True, exist_ok=False)
+        configs_dir.mkdir()
+        save_config(config, configs_dir / "retrieval.yaml")
+    else:
+        if resume_from_checkpoint.resolve().parent != output_dir.resolve():
+            raise typer.BadParameter("The checkpoint must belong to --output-dir.")
+        if config != load_config(configs_dir / "retrieval.yaml", "retrieval"):
+            raise typer.BadParameter("Resume with the run's saved configuration.")
+        for filename in ("trainer_state.json", "optimizer.pt", "scheduler.pt", "rng_state.pth"):
+            if not (resume_from_checkpoint / filename).is_file():
+                raise typer.BadParameter(f"Incomplete checkpoint: missing {filename}.")
+
+    logger.add(output_dir / "run.log", level="INFO")
     logger.info(f"Output directory: {output_dir}")
 
     set_seed(config.seed)
@@ -154,7 +172,11 @@ def main(
         f"val_samples={len(val_dataset):,}, parameters={total_params:,}",
     )
 
-    train_result = trainer.train()
+    if resume_from_checkpoint is not None:
+        logger.info(f"Resuming from {resume_from_checkpoint}")
+    train_result = trainer.train(
+        resume_from_checkpoint=str(resume_from_checkpoint) if resume_from_checkpoint else None,
+    )
     trainer.save_state()
     trainer.save_metrics("train", train_result.metrics)
 
